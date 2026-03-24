@@ -9,7 +9,7 @@
 
 2. **NFR1–NFR3 are unmeasurable.** "Feel instant," "smooth," and "no visible lag" are subjective and cannot be validated. Needs thresholds (e.g., <50ms keystroke latency).
 
-3. **No definition of what "text file" means.** No spec for binary files, symlinks, directories, permission errors, or special characters in paths.
+3. ~~**No definition of what "text file" means.** No spec for binary files, symlinks, directories, permission errors, or special characters in paths.~~ **Resolved** — added "File Definition & Constraints" section to PRD covering UTF-8 scope, binary rejection, symlinks, directories, permissions, special path characters, file size upper bound, and file creation timing.
 
 4. **SIGTERM save is an optimistic assumption.** `kill -9` bypasses signal handlers entirely. The PRD creates a false sense of reliability by not acknowledging uncatchable signals.
 
