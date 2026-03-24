@@ -36,13 +36,16 @@ If the file exists, it's loaded. If it doesn't, the editor starts empty and crea
 | Ctrl+K | Delete to end of line |
 | Ctrl+U | Delete to start of line |
 | Ctrl+W | Delete word backward |
+| Ctrl+Z | Undo |
+| Ctrl+Shift+Z | Redo |
 
 Standard text editing (insert, delete, backspace, text selection) works as expected.
 
 ## Features
 
 - Full-screen editing with word wrapping
-- Status bar showing filename and current line number
+- Status bar showing filename, `[modified]` indicator, and current line number
+- Undo/redo support (Ctrl+Z / Ctrl+Shift+Z)
 - Crash recovery — SIGHUP/SIGTERM signals trigger an automatic save before exit
 - Compiles to a single standalone binary via `bun build --compile`
 - No config files, no flags, no options — just `text-editor <file>`

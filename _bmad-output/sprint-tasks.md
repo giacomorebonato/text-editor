@@ -33,8 +33,8 @@ These tasks address gaps found in the adversarial review and the updated PRD. Th
 
 Only if Sprint 2 is complete and the editor feels solid.
 
-- [ ] **T17: Dirty indicator** — Track changes via `onContentChange`, show `[modified]` in status bar
-- [ ] **T18: Undo/redo** — Verify `editor.undo()`/`editor.redo()` work, expose via keybindings if available
+- [x] **T17: Dirty indicator** — Track changes via `onContentChange`, show `[modified]` in status bar
+- [x] **T18: Undo/redo** — Ctrl+Z / Ctrl+Shift+Z mapped to undo/redo actions (OpenTUI built-in support)
 
 ## Traceability
 

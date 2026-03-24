@@ -57,6 +57,7 @@ let editor: TextareaRenderable | null = null
 let renderer: Awaited<ReturnType<typeof createCliRenderer>> | null = null
 let statusBar: TextRenderable | null = null
 let statusError = ""
+let dirty = false
 
 async function save(): Promise<boolean> {
   if (!editor) return false
@@ -123,9 +124,15 @@ editor = new TextareaRenderable(renderer, {
   cursorStyle: { style: "block", blinking: true },
   keyBindings: [
     { name: "q", ctrl: true, action: "submit" },
+    { name: "z", ctrl: true, action: "undo" },
+    { name: "z", ctrl: true, shift: true, action: "redo" },
   ],
   onSubmit: () => {
     saveAndExit()
+  },
+  onContentChange: () => {
+    dirty = true
+    statusError = "" // clear any previous save error on new edit
   },
 })
 root.add(editor)
@@ -150,7 +157,8 @@ renderer.setFrameCallback(async () => {
     if (statusError) {
       statusBar.content = `${fileName} | ${statusError}`
     } else {
-      statusBar.content = `${fileName} | line ${cursor.row + 1}`
+      const modified = dirty ? " [modified]" : ""
+      statusBar.content = `${fileName}${modified} | line ${cursor.row + 1}`
     }
   }
 })
