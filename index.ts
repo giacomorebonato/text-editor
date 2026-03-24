@@ -4,7 +4,8 @@ import {
   TextRenderable,
   TextareaRenderable,
 } from "@opentui/core"
-import { resolve } from "path"
+import { resolve, dirname, basename } from "path"
+import { rename, unlink, stat } from "node:fs/promises"
 
 // --- CLI argument parsing ---
 const filePath = process.argv[2]
@@ -14,48 +15,91 @@ if (!filePath) {
 }
 
 const resolvedPath = resolve(filePath)
-const fileName = filePath.split("/").pop() ?? filePath
+const fileName = basename(resolvedPath)
 
-// --- File I/O ---
+// --- Pre-TUI validation ---
 let initialContent = ""
+let isNewFile = false
+
 try {
+  const fileStat = await stat(resolvedPath).catch(() => null)
+
+  if (fileStat?.isDirectory()) {
+    console.error(`Error: path is a directory — ${resolvedPath}`)
+    process.exit(1)
+  }
+
   const file = Bun.file(resolvedPath)
   if (await file.exists()) {
-    initialContent = await file.text()
+    const buffer = await file.arrayBuffer()
+    const decoder = new TextDecoder("utf-8", { fatal: true })
+    try {
+      initialContent = decoder.decode(buffer)
+    } catch {
+      console.error("Error: not a text file")
+      process.exit(1)
+    }
+  } else {
+    isNewFile = true
   }
-} catch (err) {
-  console.error(`Error reading file: ${err}`)
+} catch (err: unknown) {
+  const code = (err as NodeJS.ErrnoException).code
+  if (code === "EACCES" || code === "EPERM") {
+    console.error(`Error: permission denied — ${resolvedPath}`)
+  } else {
+    console.error(`Error reading file: ${err}`)
+  }
   process.exit(1)
 }
 
-// --- Save function ---
+// --- Save function (atomic: write temp then rename) ---
 let editor: TextareaRenderable | null = null
 let renderer: Awaited<ReturnType<typeof createCliRenderer>> | null = null
+let statusBar: TextRenderable | null = null
+let statusError = ""
 
-async function save() {
-  if (!editor) return
+async function save(): Promise<boolean> {
+  if (!editor) return false
   const content = editor.editBuffer.getText()
+  const tmpPath = resolvedPath + ".tmp"
   try {
-    await Bun.write(resolvedPath, content)
+    await Bun.write(tmpPath, content)
+    await rename(tmpPath, resolvedPath)
+    return true
   } catch (err) {
-    // Best-effort save — nothing else we can do in a signal handler
+    // Clean up temp file on failure
+    await unlink(tmpPath).catch(() => {})
+    statusError = `Save failed: ${err}`
+    return false
   }
 }
 
 async function saveAndExit() {
-  await save()
+  const ok = await save()
+  if (ok || !renderer) {
+    renderer?.destroy()
+    process.exit(0)
+  }
+  // Save failed during Ctrl+Q — stay open, show error in status bar
+  if (statusBar) {
+    statusBar.content = `${fileName} | ${statusError}`
+  }
+}
+
+async function signalSaveAndExit() {
+  await save() // best-effort
   renderer?.destroy()
   process.exit(0)
 }
 
 // --- Signal handlers for crash recovery ---
-process.on("SIGHUP", saveAndExit)
-process.on("SIGTERM", saveAndExit)
+process.on("SIGHUP", signalSaveAndExit)
+process.on("SIGTERM", signalSaveAndExit)
 
 // --- Renderer setup ---
 renderer = await createCliRenderer({
   exitOnCtrlC: false,
-  targetFps: 30,
+  targetFps: 60,
   useAlternateScreen: true,
 })
 
@@ -88,7 +132,7 @@ root.add(editor)
 editor.focus()
 
 // Status bar — fixed 1-line height at bottom
-const statusBar = new TextRenderable(renderer, {
+statusBar = new TextRenderable(renderer, {
   id: "status",
   content: `${fileName} | line 1`,
   height: 1,
@@ -103,6 +147,10 @@ root.add(statusBar)
 renderer.setFrameCallback(async () => {
   if (editor && statusBar) {
     const cursor = editor.logicalCursor
-    statusBar.content = `${fileName} | line ${cursor.row + 1}`
+    if (statusError) {
+      statusBar.content = `${fileName} | ${statusError}`
+    } else {
+      statusBar.content = `${fileName} | line ${cursor.row + 1}`
+    }
   }
 })
